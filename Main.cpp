@@ -22,6 +22,25 @@ experimental::optional<string> readFile(const string& path)
 	return {};
 }
 
+vector<string> splitStringFirst(const string& input, const string& token)
+{
+	vector<string> returnable;
+	if(input.size() > 0 && token.size() > 0 && input.size() > token.size())
+	{
+		const size_t tokLen = token.length();
+		for(size_t cur=0;cur<input.length()-tokLen;cur++)
+		{
+			if(input.substr(cur, tokLen) == token)
+			{
+				returnable.push_back(input.substr(0, cur));
+				returnable.push_back(input.substr(cur+tokLen));
+				break;
+			}
+		}
+	}
+	return returnable;
+}
+
 vector<string> splitString(string input, const string& token)
 {
 	vector<string> returnable;
@@ -76,21 +95,28 @@ int main(int argc, char *argv[])
 		auto messageFileContents = readFile(filename);
 		if(messageFileContents)
 		{
-			vector<string> headersAndBody = splitString(*messageFileContents, "\r\n\r\n\r\n");
+			vector<string> headersAndBody = splitStringFirst(*messageFileContents, "\r\n\r\n");
 			if(headersAndBody.size() != 2)
 			{
 				cout << "Cannot split message headers and message body! Program will exit..." << endl;
 				return 1;
 			}
-			vector<string> parameters = splitString(headersAndBody[0], "\r\n");
-			for(vector<string>::iterator it=parameters.begin();it!=parameters.end();it++)
+			bool kept = false;
+			vector<string> parametersOld = splitString(headersAndBody[0], "\r\n");
+			vector<string> parameters;
+			for(vector<string>::iterator it=parametersOld.begin();it!=parametersOld.end();it++)
 			{
 				vector<string> p = splitString(*it, ": ");
-				if((p.size() == 2 && p[0] != "Subject" && p[0] != "Content-Type") || p.size() != 2)
+				if(p.size() == 2)
 				{
-					parameters.erase(it);
-					it--;
+					if(p[0] == "Subject" || p[0] == "Content-Type" || p[0] == "Content-Disposition" || p[0] == "Content-Transfer-Encoding")
+					{
+						kept = true;
+						parameters.push_back(*it);
+					}
+					else kept = false;
 				}
+				else if(kept) parameters.push_back(*it);
 			}
 			stringstream uuidSS;
 			uuidSS << boost::uuids::random_generator()();
@@ -124,7 +150,6 @@ int main(int argc, char *argv[])
 			}));
 			curl_easy_setopt(curl, CURLOPT_READDATA, &newmsg);
 			curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-			//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 			CURLcode res = curl_easy_perform(curl);
 			curl_slist_free_all(recipients);
 			curl_easy_cleanup(curl);
