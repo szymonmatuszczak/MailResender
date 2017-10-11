@@ -1,0 +1,3 @@
+Simple tool for resending .eml files via SMTP server. Requirments for building: Boost UUID library, libcurl, C++17-supporting compiler.
+
+Usage: mailresender <mailserver> <fromName> <fromEmail> <to> <filename>
